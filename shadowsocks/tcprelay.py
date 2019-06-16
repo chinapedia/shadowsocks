@@ -159,6 +159,19 @@ class TCPRelayHandler(object):
         # we want to eliminate collisions
         return id(self)
 
+    def debug_print(self, prefix, data):
+        print (data)
+        try:
+            pdata = data.decode('ascii')
+        except:
+            if len(data) <= 16:
+                pdata = str(data)
+            else:
+                pdata = "{binary: %d}"% len(data)
+        logging.debug(("[LS] " if self._is_local else "[TS] ") +
+            prefix + 
+            '*' + pdata + '*')
+
     @property
     def remote_address(self):
         return self._remote_address
@@ -260,6 +273,7 @@ class TCPRelayHandler(object):
             return
         if self._ota_enable_session:
             data = self._ota_chunk_data_gen(data)
+        self.debug_print(" [RW] connecting", data)
         data = self._cryptor.encrypt(data)
         self._data_to_write_to_remote.append(data)
 
@@ -299,6 +313,7 @@ class TCPRelayHandler(object):
 
     @shell.exception_handle(self_=True, destroy=True, conn_err=True)
     def _handle_stage_addr(self, data):
+        self.debug_print("addr", data)
         if self._is_local:
             if self._is_tunnel:
                 # add ss header to data
@@ -333,6 +348,7 @@ class TCPRelayHandler(object):
         header_result = parse_header(data)
         if header_result is None:
             raise Exception('can not parse header')
+        print ("header_result", header_result)
         addrtype, remote_addr, remote_port, header_length = header_result
         logging.info('connecting %s:%d from %s:%d' %
                      (common.to_str(remote_addr), remote_port,
@@ -562,6 +578,7 @@ class TCPRelayHandler(object):
             buf_size = DOWN_STREAM_BUF_SIZE
         try:
             data = self._local_sock.recv(buf_size)
+            self.debug_print('[LR]', data)
         except (OSError, IOError) as e:
             if eventloop.errno_from_exception(e) in \
                     (errno.ETIMEDOUT, errno.EAGAIN, errno.EWOULDBLOCK):
@@ -574,6 +591,7 @@ class TCPRelayHandler(object):
             data = self._cryptor.decrypt(data)
             if not data:
                 return
+            self.debug_print('[LR] decrypt', data)
         if self._stage == STAGE_STREAM:
             self._handle_stage_stream(data)
             return
@@ -599,6 +617,7 @@ class TCPRelayHandler(object):
             buf_size = DOWN_STREAM_BUF_SIZE
         try:
             data = self._remote_sock.recv(buf_size)
+            self.debug_print('[RR]', data)
 
         except (OSError, IOError) as e:
             if eventloop.errno_from_exception(e) in \
